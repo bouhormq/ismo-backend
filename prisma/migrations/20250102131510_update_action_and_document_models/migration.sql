@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "Action" ALTER COLUMN "alarmDate" DROP NOT NULL,
+ALTER COLUMN "endDate" DROP NOT NULL;
+
+-- AlterTable
+ALTER TABLE "Document" ALTER COLUMN "name" DROP NOT NULL;

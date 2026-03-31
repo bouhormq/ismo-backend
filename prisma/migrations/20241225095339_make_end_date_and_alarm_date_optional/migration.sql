@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Action" ALTER COLUMN "alarmDate" DROP NOT NULL,
+ALTER COLUMN "endDate" DROP NOT NULL;

@@ -1,0 +1,123 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup environment variables
+        run: |
+          echo "ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS }}" >> .env
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+          echo "ENV=${{ secrets.ENV }}" >> .env
+          echo "AXONAUT_API_KEY=${{ secrets.AXONAUT_API_KEY }}" >> .env
+          echo "AXONAUT_BASE_URL=${{ secrets.AXONAUT_BASE_URL }}" >> .env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+          echo "S3_ACCESS_KEY_ID=${{ secrets.S3_ACCESS_KEY_ID }}" >> .env
+          echo "S3_SECRET_ACCESS_KEY=${{ secrets.S3_SECRET_ACCESS_KEY }}" >> .env
+          echo "S3_REGION=${{ secrets.S3_REGION }}" >> .env
+          echo "S3_BUCKET=${{ secrets.S3_BUCKET }}" >> .env
+          echo "S3_SIGNATURE_VERSION=${{ secrets.S3_SIGNATURE_VERSION }}" >> .env
+          echo "S3_BASE_URL=${{ secrets.S3_BASE_URL }}" >> .env
+          echo "BREVO_API_KEY=${{ secrets.BREVO_API_KEY }}" >> .env
+          echo "SENDER_EMAIL=${{ secrets.SENDER_EMAIL }}" >> .env
+          echo "WP_API_URL=${{ secrets.WP_API_URL }}" >> .env
+          echo "WP_API_USERNAME=${{ secrets.WP_API_USERNAME }}" >> .env
+          echo "WP_API_PASSWORD=${{ secrets.WP_API_PASSWORD }}" >> .env
+          echo "ZOHO_CLIENT_ID=${{ secrets.ZOHO_CLIENT_ID }}" >> .env
+          echo "ZOHO_CLIENT_SECRET=${{ secrets.ZOHO_CLIENT_SECRET }}" >> .env
+          echo "ZOHO_REFRESH_TOKEN=${{ secrets.ZOHO_REFRESH_TOKEN }}" >> .env
+          echo "ZOHO_ORGANIZATION_ID=${{ secrets.ZOHO_ORGANIZATION_ID }}" >> .env
+          echo "ZOHO_BASE_URL=${{ secrets.ZOHO_BASE_URL }}" >> .env
+          echo "ZOHO_ACCOUNTS_URL=${{ secrets.ZOHO_ACCOUNTS_URL }}" >> .env
+          echo "USER1_USERNAME=${{ secrets.USER1_USERNAME }}" >> .env
+          echo "USER1_PASSWORD=${{ secrets.USER1_PASSWORD }}" >> .env
+          echo "USER1_NAME=${{ secrets.USER1_NAME }}" >> .env
+          echo "USER1_ROLE=${{ secrets.USER1_ROLE }}" >> .env
+          echo "USER1_PROFILE_IMAGE_URL=${{ secrets.USER1_PROFILE_IMAGE_URL }}" >> .env
+          echo "USER1_SIGNATURE_IMAGE_URL=${{ secrets.USER1_SIGNATURE_IMAGE_URL }}" >> .env
+          echo "USER2_USERNAME=${{ secrets.USER2_USERNAME }}" >> .env
+          echo "USER2_PASSWORD=${{ secrets.USER2_PASSWORD }}" >> .env
+          echo "USER2_NAME=${{ secrets.USER2_NAME }}" >> .env
+          echo "USER2_ROLE=${{ secrets.USER2_ROLE }}" >> .env
+          echo "USER2_SIGNATURE_IMAGE_URL=${{ secrets.USER2_SIGNATURE_IMAGE_URL }}" >> .env
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 9.6
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - uses: actions/cache@v4
+        name: Setup pnpm cache
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Generate database schema
+        run: pnpm generate
+        env:
+          DISABLE_ERD: true
+
+      - name: Build
+        run: pnpm build
+
+      - name: Remove dev dependencies
+        run: pnpm install --prod --frozen-lockfile --ignore-scripts
+
+      - name: Transfer files
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -az
+          rsh: -c aes128-gcm@openssh.com
+          path: dist node_modules .env
+          remote_path: ~/app-temp/
+          remote_user: ubuntu
+          remote_host: ${{ secrets.EC2_HOST }}
+          remote_key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Deploy with SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            if [ ! -d "app" ]; then
+                mkdir app
+            fi
+            mv app app-previous 
+            mv app-temp app
+
+            if pm2 list | grep -q "${{vars.APP_NAME}}"; then
+                pm2 restart "${{vars.APP_NAME}}"
+            else
+                pm2 start app/dist/main.js --name "${{vars.APP_NAME}}" --time
+            fi
+
+            # Keep app-previous for rollback (clean up manually after 24h)
+            # rm -rf ~/app-previous

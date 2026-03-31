@@ -1,0 +1,414 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CompanyPotential {
+  AVAILABLE_EQUIPMENT
+  CONCLUSION
+  PROJECT_STUDY
+  NEUTRAL
+  MATERIAL_REQUEST
+  NEGOTIATION
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  username String @unique
+  password String
+
+  name String
+
+  signatureImageUrl String?
+  profileImageUrl   String?
+
+  exportLog ExportLog[]
+  log       Log[]
+
+  role Role @default(USER)
+
+  customers Company[]
+  actions   Action[]
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+model Company {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  companyName String
+  phoneNumber String?
+  compl       String?
+  address     String?
+  email       String?
+  zipCode     String?
+  city        String?
+  website     String?
+  country     String?
+  siret       String?
+  vatNumber   String?
+  // TODO: on production, remove nullable
+  axonautId      String?
+  zohoContactId  String?
+
+  companyTypeId Int?
+  companyType   CompanyType? @relation(fields: [companyTypeId], references: [id])
+
+  code                String
+  activityDescription String?
+
+  memo String?
+
+  followedBy User? @relation(fields: [userId], references: [id])
+  userId     Int?
+
+  companyPotential      CompanyPotential
+  companyPotentialOrder Int              @default(0)
+
+  contactOriginId Int?
+  contactOrigin   ContactOrigin? @relation(fields: [contactOriginId], references: [id])
+
+  industries                 Industry[]
+  categories                 Category[]
+  sections                   Section[]
+  usedItems                  UsedItem[]
+  desiredItems               DesiredItem[]
+  documents                  Document[]
+  Article                    Article[]
+  contacts                   Contact[]
+  actions                    Action[]
+  companyPotentialUpdateLogs CompanyPotentialUpdateLog[]
+
+  lastProspectionCall DateTime?
+}
+
+model CompanyPotentialUpdateLog {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  companyPotential CompanyPotential
+  time             BigInt           @default(0)
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, companyPotential])
+}
+
+model Article {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  title                  String
+  description            String?
+  catalogDescription     String?
+  reference              String?
+  equipmentCondition String?
+  availability       String?
+
+  purchasePriceWithoutTVA Float?
+  purchasePriceWithTVA    Float?
+  HSCode                  String?
+  marginRate              Float?
+  sellingPriceWithoutTVA  Float?
+  sellingPriceWithTVA     Float?
+
+  isCompleted   Boolean @default(false)
+  showOnWebsite Boolean @default(false)
+
+  photos Document[]
+
+  categoryId Int?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  industryId Int
+  industry   Industry @relation(fields: [industryId], references: [id])
+
+  sectionId Int?
+  section   Section? @relation(fields: [sectionId], references: [id])
+
+  companyId Int?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model UsedItem {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name String
+
+  companies Company[]
+}
+
+model DesiredItem {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name String
+
+  companies Company[]
+}
+
+model Section {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name String
+
+  companies Company[]
+
+  articles Article[]
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name String
+
+  companies Company[]
+
+  articles Article[]
+}
+
+model ContactOrigin {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name String
+
+  companies Company[]
+}
+
+model CompanyType {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name String
+
+  companies Company[]
+}
+
+model Industry {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name String
+
+  companies Company[]
+
+  articles Article[]
+}
+
+model Supplier {
+  id           Int       @id @default(autoincrement())
+  name         String
+  address      String
+  phoneNumbers String[]
+  emails       String[]
+  website      String?
+  products     Product[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Product {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reference String @unique
+
+  industry    String
+  category    String
+  description String
+
+  technicalDocs String[] // List of technical document URLs (PDF, Excel)
+  photos        String[]
+
+  salesPrice    Float
+  supplierPrice Float
+
+  supplierId Int
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+}
+
+model Action {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  object      String
+  description String
+  startDate   DateTime
+  endDate     DateTime?
+  alarmDate   DateTime?
+  isDone      Boolean   @default(false)
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  userId  Int?
+  addedBy User? @relation(fields: [userId], references: [id])
+
+  contactId Int?
+  contact   ActionContact? @relation(fields: [contactId], references: [id])
+
+  companyContactId Int?
+  companyContact   Contact? @relation(fields: [companyContactId], references: [id])
+
+  actionTypeId Int
+  actionType   ActionType @relation(fields: [actionTypeId], references: [id])
+}
+
+model ActionType {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name  String
+  color String
+
+  actions Action[]
+}
+
+model ActionContact {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name String
+
+  actions Action[]
+}
+
+model EmailTracking {
+  id        Int       @id @default(autoincrement())
+  emailId   String    @unique
+  sentAt    DateTime
+  openedAt  DateTime?
+  clickedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model CalendarEvent {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  date DateTime
+}
+
+model ExportLog {
+  id        Int        @id @default(autoincrement())
+  type      ExportType
+  userId    Int
+  user      User       @relation(fields: [userId], references: [id])
+  createdAt DateTime   @default(now())
+}
+
+enum ExportType {
+  PDF_CUSTOMER_FILE
+  PDF_PRODUCT_SHEET
+  EXCEL_CONTACTS
+  EXCEL_PRODUCTS
+}
+
+model AxonautLink {
+  id         Int      @id @default(autoincrement())
+  invoiceUrl String
+  quoteUrl   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Migration {
+  id          Int             @id @default(autoincrement())
+  description String
+  status      MigrationStatus
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+enum MigrationStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+model PerformanceIndicator {
+  id        Int      @id @default(autoincrement())
+  indicator String
+  value     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Log {
+  id          Int      @id @default(autoincrement())
+  description String
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model Document {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  name        String?
+  url         String
+  description String?
+
+  company   Company? @relation(fields: [companyId], references: [id])
+  companyId Int?
+
+  Article   Article? @relation(fields: [articleId], references: [id])
+  articleId Int?
+}
+
+model Contact {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  firstName     String
+  lastName      String
+  functionality String?
+  email         String
+  phoneNumber   String
+  note          String?
+  hasWhatsapp   Boolean  @default(false)
+  gender        Gender
+  zohoPersonId  String?
+  Company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId     Int
+  actions       Action[]
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
