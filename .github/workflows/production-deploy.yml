@@ -113,11 +113,8 @@ jobs:
             mv app app-previous 
             mv app-temp app
 
-            if pm2 list | grep -q "${{vars.APP_NAME}}"; then
-                pm2 restart "${{vars.APP_NAME}}"
-            else
-                pm2 start app/dist/main.js --name "${{vars.APP_NAME}}" --time
-            fi
+            pm2 delete "${{vars.APP_NAME}}" 2>/dev/null || true
+            pm2 start ~/app/dist/main.js --name "${{vars.APP_NAME}}" --time
 
             # Keep app-previous for rollback (clean up manually after 24h)
             # rm -rf ~/app-previous
