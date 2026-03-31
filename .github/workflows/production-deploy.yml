@@ -107,10 +107,11 @@ jobs:
           script: |
             set -e
 
+            rm -rf app-previous
             if [ ! -d "app" ]; then
                 mkdir app
             fi
-            mv app app-previous 
+            mv app app-previous
             mv app-temp app
 
             pm2 delete "${{vars.APP_NAME}}" 2>/dev/null || true
