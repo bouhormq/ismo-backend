@@ -174,6 +174,8 @@ export class ContactsService {
       selectedIds,
       articleIds,
       template,
+      cc,
+      bcc,
     } = payload;
 
     const signatureHtml = this.mailService.generateSignatureHtml(user);
@@ -189,7 +191,7 @@ export class ContactsService {
 
         const generatedPdf = await this.articleService.generateArticlePdfs({
           articleIds: [articleId],
-        });
+        }, article.title || 'Article');
 
         const uploadedPdf = await this.mediaService.uploadFile(
           generatedPdf,
@@ -243,6 +245,8 @@ export class ContactsService {
           ],
           subject: object,
           htmlContent: `${message}${signatureHtml || user.username === 'najib' ? `<br/><table cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;"><tr>${signatureHtml ? `<td style="vertical-align:middle;padding-right:16px;"><img src="${signatureHtml}" style="display:block;max-height:104px;width:auto;" /></td>` : ''}${user.username === 'najib' ? `<td style="vertical-align:middle;"><img src="https://ismo-media.s3.eu-west-3.amazonaws.com/profiles/najib.jpeg" style="display:block;max-height:104px;width:auto;" /></td>` : ''}</tr></table>` : ''}`,
+          ...(cc?.length ? { cc: cc.map((email) => ({ email })) } : {}),
+          ...(bcc?.length ? { bcc: bcc.map((email) => ({ email })) } : {}),
         });
       }
     }
