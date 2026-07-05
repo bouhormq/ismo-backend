@@ -191,7 +191,7 @@ export class ContactsService {
 
         const generatedPdf = await this.articleService.generateArticlePdfs({
           articleIds: [articleId],
-        }, article.title || 'Article');
+        });
 
         const uploadedPdf = await this.mediaService.uploadFile(
           generatedPdf,
